@@ -105,7 +105,7 @@ credenciales de BD adentro).
 ## 5. Estructura de archivos
 
 ```
-neodeter_pulse2/
+marcacion-ingreso/
 ├─ lib/
 │  ├─ main.dart                     # arranque; inicializa sincronización offline
 │  ├─ main_screen.dart              # pantalla principal (estado, conexión)
