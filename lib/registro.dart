@@ -1,7 +1,10 @@
-// lib/registro.dart - REGISTRO DE USUARIO CON RUC
+// lib/registro.dart — REGISTRO DE USUARIO (dirección visual "Pulse")
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'src/config/app_config.dart';
+import 'src/theme/pulse_theme.dart';
 
 class RegistrationScreen extends StatefulWidget {
   final VoidCallback onRegistrationComplete;
@@ -17,279 +20,381 @@ class RegistrationScreen extends StatefulWidget {
   State<RegistrationScreen> createState() => _RegistrationScreenState();
 }
 
-class _RegistrationScreenState extends State<RegistrationScreen> {
+class _RegistrationScreenState extends State<RegistrationScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _dniController = TextEditingController();
-  final _rucController = TextEditingController(text: '20101162282'); // ✅ NUEVO CAMPO RUC
+  // RUC de la empresa: oculto, viene de la config del despliegue (COMPANY_RUC).
+  final _rucController = TextEditingController(text: AppConfig.companyRuc);
 
   bool _isLoading = false;
+  late final AnimationController _bob;
+
+  @override
+  void initState() {
+    super.initState();
+    _bob = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 4),
+    )..repeat(reverse: true);
+  }
 
   @override
   void dispose() {
+    _bob.dispose();
     _nameController.dispose();
     _emailController.dispose();
     _dniController.dispose();
-    _rucController.dispose(); // ✅ DISPOSE DEL RUC
+    _rucController.dispose();
     super.dispose();
   }
 
   Future<void> _saveUserData() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('userName', _nameController.text.trim());
-      await prefs.setString('userEmail', _emailController.text.trim().toLowerCase());
+      await prefs.setString(
+          'userEmail', _emailController.text.trim().toLowerCase());
       await prefs.setString('userDni', _dniController.text.trim());
-      await prefs.setString('userRuc', _rucController.text.trim()); // ✅ GUARDAR RUC
+      await prefs.setString('userRuc', _rucController.text.trim());
 
       HapticFeedback.heavyImpact();
-      widget.showSnackBar('✅ Datos guardados exitosamente');
-      
+      widget.showSnackBar('Datos guardados exitosamente');
       widget.onRegistrationComplete();
-
     } catch (e) {
-      widget.showSnackBar('❌ Error guardando datos: $e');
+      widget.showSnackBar('Error guardando datos: $e');
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   String? _validateName(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'El nombre es requerido';
-    }
-    if (value.trim().length < 2) {
-      return 'El nombre debe tener al menos 2 caracteres';
-    }
+    if (value == null || value.trim().isEmpty) return 'El nombre es requerido';
+    if (value.trim().length < 2) return 'Mínimo 2 caracteres';
     if (!RegExp(r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$').hasMatch(value.trim())) {
-      return 'El nombre solo puede contener letras y espacios';
+      return 'Solo letras y espacios';
     }
     return null;
   }
 
   String? _validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'El email es requerido';
-    }
+    if (value == null || value.trim().isEmpty) return 'El correo es requerido';
     if (!RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(value.trim())) {
-      return 'Ingrese un email válido';
+      return 'Ingresa un correo válido';
     }
     return null;
   }
 
   String? _validateDni(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'El DNI es requerido';
-    }
+    if (value == null || value.trim().isEmpty) return 'El DNI es requerido';
     if (!RegExp(r'^\d{8}$').hasMatch(value.trim())) {
-      return 'El DNI debe tener exactamente 8 dígitos';
-    }
-    return null;
-  }
-
-  // ✅ NUEVA VALIDACIÓN PARA RUC
-  String? _validateRuc(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'El RUC de la empresa es requerido';
-    }
-    if (!RegExp(r'^\d{11}$').hasMatch(value.trim())) {
-      return 'El RUC debe tener exactamente 11 dígitos';
+      return 'Debe tener 8 dígitos';
     }
     return null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final double bottomPadding = MediaQuery.of(context).viewInsets.bottom;
-
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: PulseColors.bgDeep2,
       resizeToAvoidBottomInset: true,
-      body: SingleChildScrollView(
-        padding: EdgeInsets.only(left: 20, right: 20, top: 40, bottom: bottomPadding > 0 ? bottomPadding + 20 : 20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.grey[300]!),
-                ),
-                child: const Column(
-                  children: [
-                    Icon(
-                      Icons.person_add,
-                      size: 50,
-                      color: Colors.black87,
-                    ),
-                    SizedBox(height: 10),
-                    Text(
-                      'Registro de Usuario',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
+      body: PulseBackground(
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+                22, 24, 22, bottomInset > 0 ? bottomInset + 20 : 36),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  // Logo de pulso (flota suave)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 14, bottom: 14),
+                    child: AnimatedBuilder(
+                      animation: _bob,
+                      builder: (context, child) => Transform.translate(
+                        offset: Offset(0, -7 * _bob.value),
+                        child: child,
                       ),
+                      child: const PulseLogo(
+                          size: 84, radius: 24, strokeWidth: 2.2),
                     ),
-                    SizedBox(height: 5),
-                    Text(
-                      'Ingresa tus datos para comenzar',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              // Campo Nombre
-              _buildTextField(
-                controller: _nameController,
-                label: 'Nombre Completo',
-                icon: Icons.person,
-                validator: _validateName,
-                textCapitalization: TextCapitalization.words,
-              ),
-
-              const SizedBox(height: 12),
-
-              // Campo Email
-              _buildTextField(
-                controller: _emailController,
-                label: 'Correo Electrónico',
-                icon: Icons.email,
-                validator: _validateEmail,
-                keyboardType: TextInputType.emailAddress,
-              ),
-
-              const SizedBox(height: 12),
-
-              // Campo DNI
-              _buildTextField(
-                controller: _dniController,
-                label: 'DNI (8 dígitos)',
-                icon: Icons.badge,
-                validator: _validateDni,
-                keyboardType: TextInputType.number,
-                maxLength: 8,
-              ),
-
-              const SizedBox(height: 12),
-
-              // ✅ NUEVO CAMPO RUC
-              Offstage(
-                offstage: true, // Esto hace que el widget sea invisible
-                child: _buildTextField(
-                  controller: _rucController,
-                  label: 'RUC de la Empresa (11 dígitos)',
-                  icon: Icons.business,
-                  validator: _validateRuc,
-                  keyboardType: TextInputType.number,
-                  maxLength: 11,
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              // Botón Guardar
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isLoading ? null : _saveUserData,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4ECDC4),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    elevation: 4,
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text(
-                          'Guardar Datos',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
+                  // Títulos
+                  Text('Crea tu perfil',
+                      style: PulseText.archivo(
+                          size: 23, weight: FontWeight.w900, spacing: -0.3)),
+                  const SizedBox(height: 3),
+                  Text('Solo una vez en este teléfono',
+                      style: PulseText.nunito(
+                          size: 13.5,
+                          weight: FontWeight.w700,
+                          color: PulseColors.textMuted)),
+                  const SizedBox(height: 26),
+
+                  _field(
+                    label: 'NOMBRE COMPLETO',
+                    icon: Icons.person_outline,
+                    controller: _nameController,
+                    hint: 'Juan Carlos Gilardi',
+                    validator: _validateName,
+                    capitalization: TextCapitalization.words,
+                  ),
+                  const SizedBox(height: 15),
+                  _field(
+                    label: 'CORREO ELECTRÓNICO',
+                    icon: Icons.mail_outline,
+                    controller: _emailController,
+                    hint: 'juancarlos@correo.com',
+                    validator: _validateEmail,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 15),
+                  _field(
+                    label: 'DNI · 8 DÍGITOS',
+                    icon: Icons.badge_outlined,
+                    controller: _dniController,
+                    hint: '12345678',
+                    validator: _validateDni,
+                    keyboardType: TextInputType.number,
+                    maxLength: 8,
+                    letterSpacing: 2,
+                  ),
+
+                  const SizedBox(height: 26),
+
+                  // Botón grana
+                  PulseButton(
+                    label: 'CREAR PERFIL',
+                    gradient: PulseBrand.actionGradient,
+                    shadow: PulseBrand.actionShadow,
+                    loading: _isLoading,
+                    onTap: _isLoading ? null : _saveUserData,
+                  ),
+
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.lock_outline,
+                          size: 14, color: PulseColors.locked),
+                      const SizedBox(width: 7),
+                      Text('Tus datos se guardan solo en este equipo',
+                          style: PulseText.nunito(
+                              size: 11.5,
+                              weight: FontWeight.w700,
+                              color: PulseColors.locked)),
+                    ],
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
+  Widget _field({
     required String label,
     required IconData icon,
+    required TextEditingController controller,
+    required String hint,
     required String? Function(String?) validator,
     TextInputType? keyboardType,
-    TextCapitalization? textCapitalization,
+    TextCapitalization capitalization = TextCapitalization.none,
     int? maxLength,
+    double? letterSpacing,
   }) {
-    return TextFormField(
-      controller: controller,
-      validator: validator,
-      keyboardType: keyboardType,
-      textCapitalization: textCapitalization ?? TextCapitalization.none,
-      maxLength: maxLength,
-      style: const TextStyle(color: Colors.black),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.black54),
-        prefixIcon: Icon(icon, color: Colors.black54),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-        counterText: '',
-        filled: true,
-        fillColor: Colors.grey[100],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 7),
+          child: Text(label,
+              style: PulseText.nunito(
+                  size: 12,
+                  weight: FontWeight.w800,
+                  color: PulseColors.textMuted2,
+                  spacing: 0.3)),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[300]!),
+        Container(
+          decoration: BoxDecoration(
+            color: PulseColors.panel,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: PulseColors.borderBlue(0.22)),
+          ),
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 15, right: 10),
+                child: Icon(icon, size: 20, color: PulseBrand.accent),
+              ),
+              Expanded(
+                child: TextFormField(
+                  controller: controller,
+                  validator: validator,
+                  keyboardType: keyboardType,
+                  textCapitalization: capitalization,
+                  maxLength: maxLength,
+                  cursorColor: PulseColors.accentBlue,
+                  style: PulseText.nunito(
+                      size: 15,
+                      weight: FontWeight.w700,
+                      color: PulseColors.textWhite,
+                      spacing: letterSpacing),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: PulseText.nunito(
+                        size: 15,
+                        weight: FontWeight.w700,
+                        color: PulseColors.textMuted.withValues(alpha: 0.6)),
+                    isDense: true,
+                    counterText: '',
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                    errorStyle: PulseText.nunito(
+                        size: 11.5,
+                        weight: FontWeight.w700,
+                        color: PulseColors.redLight),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+          ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF4ECDC4), width: 2),
-        ),
-        errorStyle: const TextStyle(
-          color: Colors.redAccent,
-          fontWeight: FontWeight.w500,
+      ],
+    );
+  }
+}
+
+/// Botón Pulse reutilizable expuesto para otras pantallas.
+class PulseButton extends StatelessWidget {
+  final String label;
+  final Gradient? gradient;
+  final Color? color;
+  final Color textColor;
+  final List<BoxShadow> shadow;
+  final VoidCallback? onTap;
+  final bool loading;
+  final Widget? leading;
+  final BoxBorder? border;
+
+  const PulseButton({
+    super.key,
+    required this.label,
+    this.gradient,
+    this.color,
+    this.textColor = Colors.white,
+    this.shadow = const [],
+    required this.onTap,
+    this.loading = false,
+    this.leading,
+    this.border,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _PulseButtonFlexible(
+      label: label,
+      gradient: gradient,
+      color: color,
+      textColor: textColor,
+      shadow: shadow,
+      onTap: onTap,
+      loading: loading,
+      leading: leading,
+      border: border,
+    );
+  }
+}
+
+class _PulseButtonFlexible extends StatefulWidget {
+  final String label;
+  final Gradient? gradient;
+  final Color? color;
+  final Color textColor;
+  final List<BoxShadow> shadow;
+  final VoidCallback? onTap;
+  final bool loading;
+  final Widget? leading;
+  final BoxBorder? border;
+
+  const _PulseButtonFlexible({
+    required this.label,
+    required this.gradient,
+    required this.color,
+    required this.textColor,
+    required this.shadow,
+    required this.onTap,
+    required this.loading,
+    required this.leading,
+    required this.border,
+  });
+
+  @override
+  State<_PulseButtonFlexible> createState() => _PulseButtonFlexibleState();
+}
+
+class _PulseButtonFlexibleState extends State<_PulseButtonFlexible> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null && !widget.loading;
+    return GestureDetector(
+      onTapDown: enabled ? (_) => setState(() => _down = true) : null,
+      onTapCancel: enabled ? () => setState(() => _down = false) : null,
+      onTapUp: enabled ? (_) => setState(() => _down = false) : null,
+      onTap: enabled
+          ? () {
+              HapticFeedback.lightImpact();
+              widget.onTap!.call();
+            }
+          : null,
+      child: AnimatedScale(
+        scale: _down ? 0.98 : 1.0,
+        duration: const Duration(milliseconds: 90),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            gradient: widget.gradient,
+            color: widget.color,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: widget.shadow,
+            border: widget.border,
+          ),
+          child: widget.loading
+              ? Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2.4, color: widget.textColor),
+                  ),
+                )
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (widget.leading != null) ...[
+                      widget.leading!,
+                      const SizedBox(width: 10),
+                    ],
+                    Text(widget.label,
+                        style: PulseText.archivo(
+                            size: 16,
+                            weight: FontWeight.w900,
+                            spacing: 1,
+                            color: widget.textColor)),
+                  ],
+                ),
         ),
       ),
     );

@@ -1,6 +1,6 @@
-# neodeter_pulse
+# SIAPP-Acceso
 
-A new Flutter project.
+App de marcación de asistencia por QR (Flutter, web/PWA + Android).
 
 ## Getting Started
 

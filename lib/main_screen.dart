@@ -1,8 +1,9 @@
-// main_screen.dart - CON RUC Y QR SCANNER REAL
+// main_screen.dart — Estado y orquestación de la pantalla principal (Pulse)
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../src/connection/db.dart';
+
+import 'src/connection/db.dart';
+import 'src/theme/pulse_theme.dart';
 import 'main_screen_ui.dart';
 import 'main_screen_logic.dart';
 
@@ -16,18 +17,15 @@ class IntegratedMainScreen extends StatefulWidget {
 }
 
 class IntegratedMainScreenState extends State<IntegratedMainScreen> {
-  // Instancia de MainScreenLogic
   late MainScreenLogic _mainScreenLogic;
 
-  // Estado básico
   String? userName;
   String? userEmail;
   String? userDni;
-  String? userRuc; // ✅ AGREGADO RUC
-  AppTheme currentTheme = AppTheme.energetic;
-  bool _isLoading = false; // ✅ ESTADO DE LOADING GLOBAL
-  String _statusMessage = ''; // ✅ MENSAJE DE ESTADO
-  
+  String? userRuc;
+  bool _isLoading = false;
+  String _statusMessage = '';
+
   Map<String, String?> todayMarkings = {
     'ingreso': null,
     'refrigerioInicio': null,
@@ -35,7 +33,6 @@ class IntegratedMainScreenState extends State<IntegratedMainScreen> {
     'salida': null,
   };
 
-  // ValueNotifiers para la conexión
   final ValueNotifier<bool?> _isDatabaseConnected = ValueNotifier<bool?>(null);
   final ValueNotifier<String?> _connectionQuality = ValueNotifier<String?>(null);
 
@@ -48,36 +45,30 @@ class IntegratedMainScreenState extends State<IntegratedMainScreen> {
         logger.i('QR escaneado: $qrCode');
       },
       onLoading: (isLoading) {
-        setState(() {
-          _isLoading = isLoading;
-        });
-        logger.i('Loading: $isLoading');
+        setState(() => _isLoading = isLoading);
       },
       onStatusMessage: (message) {
-        setState(() {
-          _statusMessage = message;
-        });
-        logger.i('Status: $message');
+        setState(() => _statusMessage = message);
       },
       onTodayMarkingsUpdated: (markings) {
         setState(() {
           todayMarkings = {
             'ingreso': markings.isNotEmpty ? markings[0]['horaentrada'] : null,
-            'refrigerioInicio': markings.isNotEmpty ? markings[0]['horaRefrigerioInicio'] : null,
-            'refrigerioFin': markings.isNotEmpty ? markings[0]['horaRefrigerioFin'] : null,
+            'refrigerioInicio':
+                markings.isNotEmpty ? markings[0]['horaRefrigerioInicio'] : null,
+            'refrigerioFin':
+                markings.isNotEmpty ? markings[0]['horaRefrigerioFin'] : null,
             'salida': markings.isNotEmpty ? markings[0]['horasalida'] : null,
           };
         });
-        logger.i('Marcaciones del día actualizadas: $markings');
       },
-      onUserDataLoaded: (name, email, dni, ruc) { // ✅ AGREGADO RUC
+      onUserDataLoaded: (name, email, dni, ruc) {
         setState(() {
           userName = name;
           userEmail = email;
           userDni = dni;
-          userRuc = ruc; // ✅ ASIGNAR RUC
+          userRuc = ruc;
         });
-        logger.i('Datos de usuario cargados: $name, $email, $dni, $ruc');
         _mainScreenLogic.fetchTodayMarkings();
       },
     );
@@ -87,7 +78,6 @@ class IntegratedMainScreenState extends State<IntegratedMainScreen> {
 
   Future<void> _loadInitialData() async {
     await _mainScreenLogic.loadUserData();
-    await _loadTheme();
     await _checkDatabaseConnection();
   }
 
@@ -99,50 +89,31 @@ class IntegratedMainScreenState extends State<IntegratedMainScreen> {
     super.dispose();
   }
 
-  Future<void> _loadTheme() async {
-    final prefs = await SharedPreferences.getInstance();
-    final themeName = prefs.getString('appTheme') ?? 'energetic';
-    setState(() {
-      currentTheme = AppTheme.values.firstWhere(
-        (e) => e.toString() == 'AppTheme.$themeName',
-        orElse: () => AppTheme.energetic,
-      );
-    });
-  }
-
   Future<void> _checkDatabaseConnection() async {
+    _isDatabaseConnected.value = null;
     final status = await DatabaseService.checkConnectivity();
     _isDatabaseConnected.value = status.canReachServer;
-    _connectionQuality.value = status.message;
+    _connectionQuality.value = status.quality;
   }
 
-  // ✅ MÉTODO ACTUALIZADO: Usar scanner QR real
   Future<void> _scanAndMark(String marcationType) async {
     await _mainScreenLogic.scanQRAndMark(marcationType);
   }
 
-  // Método para recargar datos del usuario después del registro
   Future<void> _reloadUserData() async {
-    logger.i('🔄 Recargando datos del usuario después del registro...');
     await _mainScreenLogic.loadUserData();
   }
 
-  // Callback de registro completado
   void _onRegistrationComplete() async {
-    logger.i('✅ Registro completado, recargando datos...');
-    
-    // Mostrar mensaje de éxito
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('✅ Datos guardados exitosamente'),
-          backgroundColor: Colors.green,
+          content: Text('Perfil creado'),
+          backgroundColor: PulseColors.greenGrad2,
           duration: Duration(seconds: 2),
         ),
       );
     }
-    
-    // Recargar datos para cambiar a la pantalla de marcaciones
     await _reloadUserData();
   }
 
@@ -150,57 +121,54 @@ class IntegratedMainScreenState extends State<IntegratedMainScreen> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // Pantalla principal
         buildMainUI(
           context,
-          currentTheme,
-          userName,
-          userEmail,
-          userDni,
-          userRuc, // ✅ PASAR RUC
-          todayMarkings,
-          _isDatabaseConnected,
-          _connectionQuality,
+          userName: userName,
+          userEmail: userEmail,
+          userDni: userDni,
+          userRuc: userRuc,
+          todayMarkings: todayMarkings,
+          isDatabaseConnected: _isDatabaseConnected,
+          connectionQuality: _connectionQuality,
           onScanAndMark: _scanAndMark,
-          onChangeTheme: (theme) => setState(() => currentTheme = theme),
           onCheckConnection: _checkDatabaseConnection,
           onRegistrationComplete: _onRegistrationComplete,
         ),
-        
-        // ✅ OVERLAY DE LOADING MINIMALISTA
-        if (_isLoading)
-          Container(
-            color: Colors.black54,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircularProgressIndicator(
-                      color: Color(0xFF4ECDC4),
-                    ),
-                    if (_statusMessage.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        _statusMessage,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ),
+        if (_isLoading) _loadingOverlay(),
       ],
+    );
+  }
+
+  Widget _loadingOverlay() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.6),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: PulseColors.panel,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: PulseColors.borderBlue(0.25)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: PulseColors.accentBlue),
+              if (_statusMessage.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Text(
+                  _statusMessage,
+                  textAlign: TextAlign.center,
+                  style: PulseText.nunito(
+                      size: 15,
+                      weight: FontWeight.w700,
+                      color: PulseColors.textWhite),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

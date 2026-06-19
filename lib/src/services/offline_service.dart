@@ -6,7 +6,7 @@ import 'dart:convert';
 
 /// 🗃️ SERVICIO DE ALMACENAMIENTO OFFLINE UNIVERSAL
 class OfflineService {
-  static const String _storageKey = 'neodeter_offline_markings';
+  static const String _storageKey = 'siapp_offline_markings';
   static final Logger _logger = Logger();
 
   /// ✅ FUNCIÓN PRINCIPAL: Guardar marcación offline (compatible web/mobile)
@@ -273,7 +273,7 @@ class OfflineService {
       // Test guardar offline
       await saveOffline(
         userName: 'Test Usuario',
-        userEmail: 'test@neodeter.com',
+        userEmail: 'test@example.com',
         userDni: '12345678',
         qrCode: '20123456789|Test Area|-12.0464,-77.0428|-12.0464,-77.0428|1|activo|Admin',
         marcationType: 'Ingreso',

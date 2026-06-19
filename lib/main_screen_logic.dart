@@ -5,6 +5,11 @@ import '../src/connection/db.dart';
 import '../src/services/qr_scanner_service.dart';
 import 'package:logger/logger.dart';
 
+import 'exito_screen.dart';
+import 'error_screen.dart';
+import 'src/theme/pulse_theme.dart';
+import 'src/utils/pulse_format.dart';
+
 class MainScreenLogic {
   final BuildContext context;
   final Function(String) onQrResult;
@@ -70,8 +75,9 @@ class MainScreenLogic {
         return;
       }
 
-      // Escanear QR con cámara
-      final qrCode = await QRScannerService.scanQRCode(context);
+      // Escanear QR con cámara (subtítulo = tipo de marcación en curso)
+      final qrCode = await QRScannerService.scanQRCode(context,
+          subtitle: marcacionLabel(marcationType));
 
       if (qrCode == null) {
         onStatusMessage('Escaneo cancelado');
@@ -95,27 +101,26 @@ class MainScreenLogic {
   }
 
   Future<void> processQRCode(String qrCode, String marcationType) async {
-    onLoading(true);
-    onStatusMessage('Procesando marcación...');
-
     if (_userEmail.isEmpty || _userDni.isEmpty || _userRuc.isEmpty) {
       if (context.mounted) {
         _showErrorDialog('Error', 'Por favor, complete su registro.');
       }
-      onLoading(false);
       return;
     }
 
+    bool success = false;
+    String? errMsg;
+
+    onLoading(true);
+    onStatusMessage('Procesando marcación...');
     try {
-      // Validación de RUC: Verificar que el QR pertenezca a la empresa del usuario
+      // Validación de RUC: el QR debe pertenecer a la empresa del usuario.
       if (!_validateQRRuc(qrCode)) {
         throw Exception(
-            'El código QR no pertenece a su empresa (RUC: $_userRuc)');
+            'El código QR no pertenece a tu empresa (RUC: $_userRuc).');
       }
 
       onStatusMessage('Registrando marcación...');
-
-      // LLAMADA DIRECTA SIN REINTENTOS AUTOMÁTICOS
       await DatabaseService.processMarking(
         userName: _userName,
         userEmail: _userEmail,
@@ -124,67 +129,60 @@ class MainScreenLogic {
         marcationType: marcationType,
         context: context,
       );
-
-      if (context.mounted) {
-        _showSuccessDialog(
-            'Éxito', 'Marcación de $marcationType registrada correctamente.');
-      }
-      await fetchTodayMarkings();
+      success = true;
     } catch (e) {
       _logger.e('Error procesando QR: $e');
-      if (context.mounted) {
-        // MOSTRAR DIÁLOGO DE REINTENTO MANUAL
-        await _showRetryDialog(e.toString(), marcationType, qrCode);
-      }
+      errMsg = e.toString();
     } finally {
       onLoading(false);
       onStatusMessage('');
     }
-  }
 
-  // NUEVO: Diálogo de reintento manual
-  Future<void> _showRetryDialog(String error, String marcationType, String qrCode) async {
     if (!context.mounted) return;
 
-    final shouldRetry = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.error, color: Colors.red),
-              SizedBox(width: 10),
-              Text('Grabación Falló'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Error: $error'),
-              const SizedBox(height: 16),
-              const Text('¿Desea reintentar la marcación?'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-              child: const Text('Reintentar'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldRetry == true) {
-      // Reintentar manualmente
-      await processQRCode(qrCode, marcationType);
+    if (success) {
+      await _showExito(marcationType);
+      await fetchTodayMarkings();
+    } else {
+      final retry = await _showError(errMsg ?? 'No se pudo registrar.');
+      if (retry == true) {
+        await scanQRAndMark(marcationType);
+      }
     }
+  }
+
+  // Pantalla completa de Éxito.
+  Future<void> _showExito(String marcationType) async {
+    if (!context.mounted) return;
+    final hora = formatHora(LimaTimeHelper.formatTimeForDB());
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExitoScreen(
+          tipoLabel: marcacionLabel(marcationType),
+          hora: hora,
+          sincronizado: true,
+        ),
+      ),
+    );
+  }
+
+  // Pantalla completa de Error. Devuelve true si el usuario pide reintentar.
+  Future<bool?> _showError(String rawMessage) {
+    final detalle = _cleanError(rawMessage);
+    return Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ErrorScreen(detalle: detalle),
+      ),
+    );
+  }
+
+  String _cleanError(String raw) {
+    var m = raw.replaceFirst('Exception: ', '').trim();
+    if (m.isEmpty) {
+      m = 'El código no se reconoció o no corresponde a esta oficina. '
+          'Vuelve a intentarlo.';
+    }
+    return m;
   }
 
   bool _validateQRRuc(String qrCode) {
@@ -274,7 +272,8 @@ class MainScreenLogic {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor:
+            isError ? PulseColors.red : PulseColors.greenGrad2,
       ),
     );
   }
@@ -284,33 +283,23 @@ class MainScreenLogic {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
+        backgroundColor: PulseColors.panel,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(title,
+            style: PulseText.archivo(size: 17, weight: FontWeight.w800)),
+        content: Text(message,
+            style: PulseText.nunito(
+                size: 14,
+                weight: FontWeight.w600,
+                color: PulseColors.textMuted3)),
         actions: <Widget>[
           TextButton(
-            child: const Text('Ok'),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-            },
-          )
-        ],
-      ),
-    );
-  }
-
-  void _showSuccessDialog(String title, String message) {
-    if (!context.mounted) return;
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: <Widget>[
-          TextButton(
-            child: const Text('Ok'),
-            onPressed: () {
-              Navigator.of(ctx).pop();
-            },
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Ok',
+                style: PulseText.nunito(
+                    size: 14,
+                    weight: FontWeight.w800,
+                    color: PulseColors.accentBlue)),
           )
         ],
       ),

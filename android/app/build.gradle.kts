@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.neodeter.pulse"
+    namespace = "com.siapp.acceso"
     compileSdk = 35
     ndkVersion = "27.0.12077973"
 
@@ -25,7 +25,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.neodeter.pulse"
+        applicationId = "com.siapp.acceso"
         minSdk = 21
         targetSdk = 35
         versionCode = 1

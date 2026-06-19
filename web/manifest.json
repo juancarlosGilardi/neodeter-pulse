@@ -1,11 +1,11 @@
 {
-    "name": "Neo Deter - Marcaciones",
-    "short_name": "Marcaciones",
+    "name": "SIAPP-Acceso",
+    "short_name": "SIAPP-Acceso",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#FFFFFF",
-    "theme_color": "#4ECDC4",
-    "description": "Sistema de Marcaciones Neo Deter SAC - control de asistencia por QR.",
+    "background_color": "#0A1426",
+    "theme_color": "#0C1A30",
+    "description": "SIAPP-Acceso - control de asistencia por QR.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
